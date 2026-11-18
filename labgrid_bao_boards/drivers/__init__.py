@@ -3,7 +3,7 @@ Copyright (c) Bao Project and Contributors. All rights reserved
 
 SPDX-License-Identifier: Apache-2.0
 
-The drivers, one module per way of loading a board.
+The drivers, one module each: board loaders and power switches.
 """
 
-from . import trace32, zynqmp_jtag  # noqa: F401
+from . import tapo, trace32, zynqmp_jtag  # noqa: F401

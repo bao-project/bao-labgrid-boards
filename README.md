@@ -100,7 +100,41 @@ The license is in the debug cable.
 
 ## Layout
 
-    labgrid_bao_boards/drivers/   one module per driver: zynqmp_jtag.py, trace32.py
+    labgrid_bao_boards/drivers/   one module per driver: zynqmp_jtag.py, trace32.py, tapo.py
+    labgrid_bao_boards/power/     power backends in labgrid's shape: tapo.py
+
+## Power
+
+| # | Driver | Switch | Binds to | Needs |
+|---|---|---|---|---|
+| 1 | `TapoPowerDriver` | TP-Link Tapo plugs (P100, P110) | `NetworkPowerPort` with `model: tapo` | python-kasa: `pip install "labgrid-bao-boards[tapo] @ git+https://github.com/bao-project/labgrid-bao-boards"` |
+
+labgrid's own `NetworkPowerDriver` covers many switches (Shelly, Gude, ...)
+but not Tapo, whose plugs want the TP-Link account. `TapoPowerDriver` is the
+same driver with a Tapo backend: `on`, `off`, `cycle`, `get`.
+
+```yaml
+imports:
+  - labgrid_bao_boards
+targets:
+  main:
+    resources:
+      - NetworkPowerPort:
+          model: tapo
+          host: http://192.168.1.50     # the plug
+          index: 0                      # one plug, one outlet
+    drivers:
+      TapoPowerDriver:
+        delay: 3.0
+```
+
+The account is read from `TAPO_USER` and `TAPO_PASS`, in the environment or
+in `~/.config/tapo.env` (`NAME=value` lines; `$LAB_TAPO_ENV` names another
+file). Keep that file readable by you alone.
+
+`labgrid-client power` does not use this driver: it looks the model up among
+labgrid's own backends. A lab that wants it there links
+`labgrid_bao_boards/power/tapo.py` into labgrid's `driver/power` directory.
 
 ## Using a loader
 
@@ -116,6 +150,7 @@ loader.load([("bao.bin", "0x200000"), ("guest.elf", None)])
 
 ## Status
 
-Neither driver has run on a board yet: the ZynqMP sequence only against a
+Neither loader has run on a board yet: the ZynqMP sequence only against a
 stand-in for `xsdb`, the TRACE32 one only against stand-ins for PowerView
-and `t32rem`.
+and `t32rem`. The Tapo backend has read the state of a P110; switching it and
+the driver class on a real plug are still to be tried.

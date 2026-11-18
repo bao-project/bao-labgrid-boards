@@ -11,5 +11,8 @@ license = {text = "Apache-2.0"}
 requires-python = ">=3.9"
 dependencies = ["labgrid>=25.0"]
 
+[project.optional-dependencies]
+tapo = ["python-kasa>=0.7"]
+
 [tool.setuptools]
-packages = ["labgrid_bao_boards", "labgrid_bao_boards.drivers"]
+packages = ["labgrid_bao_boards", "labgrid_bao_boards.drivers", "labgrid_bao_boards.power"]
