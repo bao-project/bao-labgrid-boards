@@ -24,6 +24,7 @@ ELF, which carries its own, and a hex string for a raw binary.
 | # | Driver | Boards | Binds to | Tool |
 |---|---|---|---|---|
 | 1 | `ZynqMPJTAGBootDriver` | Zynq UltraScale+ (ZCU104, ZCU102) | `USBFlashableDevice` (the JTAG cable) | `xsdb` |
+| 2 | `Trace32Driver` | anything a Lauterbach debugger reaches (S32Z270, TC4x, RH850) | `USBFlashableDevice` (the debugger) | TRACE32 PowerView, `t32rem` |
 
 ### ZynqMPJTAGBootDriver
 
@@ -52,6 +53,55 @@ With a remote place the resource comes from the exporter as a
 `NetworkUSBFlashableDevice`; labgrid copies the files to the exporter host
 and `xsdb` runs there, so that is where it must be installed.
 
+### Trace32Driver
+
+Starts TRACE32 PowerView without its window (`SCREEN=OFF` in the generated
+configuration), with its Remote API open, and
+either runs your PRACTICE script or loads images after the board's own
+bring-up script. PowerView stays up afterwards, so the session can be driven
+further and must be stopped when done.
+
+```yaml
+imports:
+  - labgrid_bao_boards
+targets:
+  main:
+    resources:
+      - USBFlashableDevice:
+          match:
+            ID_VENDOR_ID: "0897"        # Lauterbach
+    drivers:
+      Trace32Driver:
+        executable: t32marm             # PowerView for the architecture
+        sys: /opt/t32                   # TRACE32 system directory
+        port: 20000                     # Remote API port, unique per debugger
+        # node: "<debugger name>"       # with several debuggers on USB
+        # init: /path/to/bringup.cmm    # leaves the target ready for Data.LOAD
+        # go: false                     # load without starting
+        # headless: false               # show the PowerView window
+        # xvfb: true                    # run under xvfb-run, if PowerView still wants a display
+tools:
+  t32marm: /opt/t32/bin/pc_linux64/t32marm
+  t32rem: /opt/t32/bin/pc_linux64/t32rem
+```
+
+`load(images)` takes one of two shapes:
+
+1. a PRACTICE script first, then its arguments:
+   `[("t32.cmm", None), ("bao.bin", None), ("guest.bin", None)]` runs
+   `DO t32.cmm bao.bin guest.bin`;
+2. images only, which needs `init`: after the init script, an ELF is loaded
+   with `Data.LOAD.Elf`, a raw binary with `Data.LOAD.Binary` at its address.
+
+Then `Go`, unless `go` is off. `command("Break")` sends any TRACE32 command,
+`stop()` quits PowerView, `log()` returns what it printed.
+
+The license is in the debug cable.
+
+## Layout
+
+    labgrid_bao_boards/drivers/   one module per driver: zynqmp_jtag.py, trace32.py
+
 ## Using a loader
 
 From Python, like any labgrid driver:
@@ -66,5 +116,6 @@ loader.load([("bao.bin", "0x200000"), ("guest.elf", None)])
 
 ## Status
 
-The ZynqMP sequence has only run against a stand-in for `xsdb`, not on a
-board yet.
+Neither driver has run on a board yet: the ZynqMP sequence only against a
+stand-in for `xsdb`, the TRACE32 one only against stand-ins for PowerView
+and `t32rem`.
