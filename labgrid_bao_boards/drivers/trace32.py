@@ -9,8 +9,9 @@ Registered by the environment's ``imports: [labgrid_bao_boards]``.
 PowerView runs where the debugger is: on this machine for a local resource,
 on the exporter host (through ssh) for a remote one, after the files were
 copied there. It is started without a window (SCREEN=OFF) and with its Remote
-API open, so the session stays up and can be driven with command() until
-stop(). The ``tools`` keys of the environment name the PowerView executable
+API open; the script is then sent through that API, since a windowless
+PowerView does not run a start-up script given on its command line. The
+session stays up and can be driven with command() until stop(). The ``tools`` keys of the environment name the PowerView executable
 (``t32marm``, or whatever ``executable`` says) and ``t32rem``.
 """
 
@@ -47,6 +48,7 @@ class Trace32Driver(Driver):  # pylint: disable=too-many-instance-attributes
         xvfb (bool): also give it a virtual display (xvfb-run), for PowerView
             builds that want an X server even with the screen off
         timeout (int): how long PowerView may take to answer, in seconds
+        script_timeout (int): how long the load script may take, in seconds
     """
     bindings = {"debugger": {"USBFlashableDevice", "NetworkUSBFlashableDevice"}}
 
@@ -63,6 +65,7 @@ class Trace32Driver(Driver):  # pylint: disable=too-many-instance-attributes
     headless = attr.ib(default=True, validator=attr.validators.instance_of(bool))
     xvfb = attr.ib(default=False, validator=attr.validators.instance_of(bool))
     timeout = attr.ib(default=30, validator=attr.validators.instance_of(int))
+    script_timeout = attr.ib(default=120, validator=attr.validators.instance_of(int))
 
     def __attrs_post_init__(self):
         super().__attrs_post_init__()
@@ -118,7 +121,7 @@ class Trace32Driver(Driver):  # pylint: disable=too-many-instance-attributes
             lines += ["SCREEN=OFF", ""]
         return "\n".join(lines)
 
-    def practice(self, images):
+    def practice(self, images, entry=None):
         """The PRACTICE commands for a list of (path on the debugger's machine, address)."""
         if images[0][0].endswith(".cmm"):
             arguments = " ".join(f'"{path}"' for path, _ in images[1:])
@@ -130,17 +133,18 @@ class Trace32Driver(Driver):  # pylint: disable=too-many-instance-attributes
                     lines.append(f'Data.LOAD.Binary "{path}" {address}')
                 else:
                     lines.append(f'Data.LOAD.Elf "{path}"')
-            first = images[0][1]
+            first = entry or images[0][1]
             if first:
                 lines.append(f"Register.Set PC {first}")
         if self.go:
             lines.append("Go")
-        lines.append("ENDDO")
+        # tells load() that the script ran to its end
+        lines += [f'OPEN #1 "{self.workdir}/done" /Create', "CLOSE #1", "ENDDO"]
         return "\n".join(lines) + "\n"
 
     @Driver.check_active
     @step(args=["images"])
-    def load(self, images, firmware=None):  # pylint: disable=unused-argument
+    def load(self, images, firmware=None, entry=None):  # pylint: disable=unused-argument
         """Start PowerView, load the images and, unless go is off, run them.
 
         Args:
@@ -165,19 +169,46 @@ class Trace32Driver(Driver):  # pylint: disable=too-many-instance-attributes
                 raise ValueError(f"{path} is an ELF and carries its own addresses")
         staged = [(self._stage(path), address) for path, address in images]
         config = self._stage_text("config.t32", self.config())
-        practice = self._stage_text("run.cmm", self.practice(staged))
-        launch = [self.powerview, "-c", config, "-s", practice]
-        launch = " ".join(shlex.quote(arg) for arg in launch)
+        practice = self._stage_text("run.cmm", self.practice(staged, entry))
+        launch = " ".join(shlex.quote(arg) for arg in (self.powerview, "-c", config))
         if self.xvfb:
             launch = f"xvfb-run -a {launch}"
-        self._run(["sh", "-c", f"mkdir -p {self.workdir} && cd {self.workdir} && "
+        self._run(["sh", "-c", f"mkdir -p {self.workdir} && cd {self.workdir} && rm -f done && "
                                f"nohup {launch} > powerview.log 2>&1 < /dev/null &"])
         deadline = time.monotonic() + self.timeout
-        while time.monotonic() < deadline:
-            if self.running():
-                return f"PowerView is up (Remote API port {self.port})\n"
+        while not self.running():
+            if time.monotonic() > deadline:
+                raise TimeoutError(f"PowerView did not answer on port {self.port}:\n{self.log()}")
             time.sleep(1)
-        raise TimeoutError(f"PowerView did not answer on port {self.port}:\n{self.log()}")
+
+        self._run([self.t32rem, "localhost", f"port={self.port}", "DO", practice])
+        deadline = time.monotonic() + self.script_timeout
+        while not self._exists(f"{self.workdir}/done"):
+            if time.monotonic() > deadline:
+                raise TimeoutError("the load script did not finish: " + self._where())
+            time.sleep(1)
+        return f"PowerView is up (Remote API port {self.port}), script done\n"
+
+    def _exists(self, path):
+        try:
+            self._run(["test", "-e", path])
+            return True
+        except subprocess.CalledProcessError:
+            return False
+
+    def _ask(self, function):
+        """The value of a TRACE32 function, as text."""
+        try:
+            out = self._run([self.t32rem, "localhost", f"port={self.port}", "PRINT", function])
+        except subprocess.CalledProcessError:
+            return "?"
+        return out.rsplit("message:", 1)[-1].strip()
+
+    def _where(self):
+        """Where a script stands and the last error PowerView recorded."""
+        error = self._ask("ERROR.MESSAGE()")
+        return (f"stopped at {self._ask('PRACTICE.CALLER.FILE(0)')} line "
+                f"{self._ask('PRACTICE.CALLER.LINE(0)')}; last error: {error or 'none'}")
 
     @Driver.check_active
     @step(args=["command"])
