@@ -30,7 +30,8 @@ ELF, which carries its own, and a hex string for a raw binary.
 
 Boots the board to U-Boot over JTAG: PMU firmware, FSBL, TF-A and U-Boot go
 into RAM together with the images, and U-Boot is left running. Nothing is
-written to the board, whose boot-mode switches must select JTAG.
+written to the board. The driver forces the boot mode to JTAG from the
+debugger before it resets the chip.
 
 ```yaml
 imports:
@@ -150,7 +151,8 @@ loader.load([("bao.bin", "0x200000"), ("guest.elf", None)])
 
 ## Status
 
-Neither loader has run on a board yet: the ZynqMP sequence only against a
-stand-in for `xsdb`, the TRACE32 one only against stand-ins for PowerView
-and `t32rem`. The Tapo backend has read the state of a P110; switching it and
-the driver class on a real plug are still to be tried.
+| # | Driver | Tried on hardware |
+|---|---|---|
+| 1 | `ZynqMPJTAGBootDriver` | boots a ZCU104 to the U-Boot prompt with `xsdb` 2020.2 and the 2023.1 prebuilt firmware, the board's switches on JTAG. The software override of the boot mode has not been tried with the switches on another mode. |
+| 2 | `Trace32Driver` | no: only against stand-ins for PowerView and `t32rem` |
+| 3 | `TapoPowerDriver` | the backend has read the state of a P110; switching, and the driver class on a real plug, not yet |

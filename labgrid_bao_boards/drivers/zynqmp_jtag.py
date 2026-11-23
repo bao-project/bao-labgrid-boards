@@ -5,8 +5,9 @@ SPDX-License-Identifier: Apache-2.0
 
 labgrid driver that boots a Zynq UltraScale+ board over JTAG with xsdb:
 PMU firmware, FSBL, TF-A and U-Boot go into RAM together with the caller's
-images, and U-Boot is left running. Nothing is written to the board, whose
-boot-mode switches must select JTAG. Registered by the environment's
+images, and U-Boot is left running. Nothing is written to the board. The
+boot mode is forced to JTAG from the debugger, so the board's boot-mode
+switches should not matter. Registered by the environment's
 ``imports: [labgrid_bao_boards]``.
 
 xsdb runs where the cable is: on this machine for a local resource, on the
@@ -84,6 +85,10 @@ class ZynqMPJTAGBootDriver(Driver):
         lines = [
             "connect",
             target("*PSU*"),
+            # boot mode JTAG whatever the board's switches say (BOOT_MODE_USER:
+            # use the alternate mode, which is 0), so the FSBL waits for the
+            # debugger instead of looking for a boot device and resetting
+            "mwr 0xff5e0200 0x0100",
             "rst -system",
             "after 1000",
             # let the PMU run code loaded over JTAG
