@@ -224,6 +224,11 @@ class Trace32Driver(Driver):  # pylint: disable=too-many-instance-attributes
             self._run([self.t32rem, "localhost", f"port={self.port}", "QUIT"])
         except subprocess.CalledProcessError:
             pass
+        # a PowerView whose debugger lost power no longer answers QUIT
+        try:
+            self._run(["pkill", "-f", f"labgrid-t32-{self.port}-[0-9]*/config.t32"])
+        except subprocess.CalledProcessError:
+            pass
 
     @Driver.check_active
     def log(self):
