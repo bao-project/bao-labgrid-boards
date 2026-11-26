@@ -4,7 +4,7 @@ Copyright (c) Bao Project and Contributors. All rights reserved
 SPDX-License-Identifier: Apache-2.0
 
 labgrid driver that loads a board through a Lauterbach TRACE32 debugger.
-Registered by the environment's ``imports: [labgrid_bao_boards]``.
+Registered by the environment's ``imports: [bao_labgrid_boards]``.
 
 PowerView runs where the debugger is: on this machine for a local resource,
 on the exporter host (through ssh) for a remote one, after the files were

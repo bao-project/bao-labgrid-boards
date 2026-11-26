@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 labgrid driver that programs a Renesas microcontroller's flash with
 Renesas Flash Programmer (rfp-cli) through an E1, E2 or E2 Lite emulator.
-Registered by the environment's ``imports: [labgrid_bao_boards]``.
+Registered by the environment's ``imports: [bao_labgrid_boards]``.
 
 rfp-cli runs where the emulator is: on this machine for a local resource, on
 the exporter host (through ssh) for a remote one, after the files were copied

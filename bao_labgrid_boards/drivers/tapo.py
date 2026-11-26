@@ -4,12 +4,12 @@ Copyright (c) Bao Project and Contributors. All rights reserved
 SPDX-License-Identifier: Apache-2.0
 
 labgrid power driver for TP-Link Tapo smart plugs (P100, P110). Registered
-by the environment's ``imports: [labgrid_bao_boards]``.
+by the environment's ``imports: [bao_labgrid_boards]``.
 
 It is labgrid's NetworkPowerDriver with the Tapo backend of this package
 (..power.tapo), which labgrid itself does not ship: same resource, same
 on/off/cycle/get, same tunnelling through the exporter host for a remote
-place. Needs python-kasa (pip install labgrid-bao-boards[tapo]).
+place. Needs python-kasa (pip install bao-labgrid-boards[tapo]).
 """
 
 import attr

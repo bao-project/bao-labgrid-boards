@@ -8,7 +8,7 @@ PMU firmware, FSBL, TF-A and U-Boot go into RAM together with the caller's
 images, and U-Boot is left running. Nothing is written to the board. The
 boot mode is forced to JTAG from the debugger, so the board's boot-mode
 switches should not matter. Registered by the environment's
-``imports: [labgrid_bao_boards]``.
+``imports: [bao_labgrid_boards]``.
 
 xsdb runs where the cable is: on this machine for a local resource, on the
 exporter host (through ssh) for a remote one, after the files were copied

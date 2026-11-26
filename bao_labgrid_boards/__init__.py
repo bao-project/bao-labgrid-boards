@@ -7,7 +7,7 @@ labgrid drivers and boot strategies for the boards Bao runs on. Importing the pa
 them with labgrid; an environment file does that with
 
     imports:
-      - labgrid_bao_boards
+      - bao_labgrid_boards
 """
 
 from . import drivers, strategy  # noqa: F401

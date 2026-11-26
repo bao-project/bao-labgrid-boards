@@ -194,7 +194,7 @@ class SDCardStrategy(BootStrategy):
 
     Args:
         card (dict): layout of the card to build around the first image with
-            the firmware (see labgrid_bao_boards.card); without it the first
+            the firmware (see bao_labgrid_boards.card); without it the first
             image is a whole-card image, written as it is
     """
     bindings = {
