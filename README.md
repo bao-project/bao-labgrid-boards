@@ -1,6 +1,6 @@
 # labgrid-bao-boards
 
-[labgrid](https://labgrid.readthedocs.io/) drivers for the boards Bao runs
+[labgrid](https://labgrid.readthedocs.io/) drivers and boot strategies for the boards Bao runs
 on: the ways of getting an image running on a board that labgrid does not
 ship. They depend on labgrid alone, so anything that speaks labgrid can use
 them: a test framework such as bao-kao, a board lab's tooling. The board can be on the desk or behind a labgrid exporter; the driver
@@ -8,7 +8,7 @@ runs the vendor tool wherever the hardware is.
 
     pip install git+https://github.com/bao-project/labgrid-bao-boards
 
-An environment file registers the drivers with one line:
+An environment file registers the drivers and strategies with one line:
 
 ```yaml
 imports:
@@ -130,9 +130,48 @@ tools:
 binary with its address: `[("guest.hex", None), ("bao.bin", "0x0")]`. An ELF
 is refused, since `rfp-cli` cannot read one.
 
+## Boot strategies
+
+A strategy takes a kind of board from off to running the caller's images and
+back, by sequencing the board's power, console and loader drivers. Whoever
+boots the board names the images and nothing else, so a test framework and a
+lab's command line boot it the same way.
+
+| # | Strategy | For | Binds | `boot(images, firmware=None)` |
+|---|---|---|---|---|
+| 1 | `LoaderStrategy` | boards whose loader starts the images itself (`Trace32Driver`, `RFPDriver`) | power, console, loader | power cycle, wait `settle` seconds, load |
+| 2 | `UBootLoaderStrategy` | boards whose loader leaves U-Boot at its prompt (`ZynqMPJTAGBootDriver`) | power, console, loader, `UBootDriver` | power cycle, load, `go` to the first image that has an address |
+| 3 | `UBootNetStrategy` | boards that boot their own U-Boot | power, console, `UBootDriver`, a TFTP or HTTP provider | stage the first image, power cycle, `dhcp`, fetch, `go` |
+
+`off()` ends a debugger session a loader left open and powers the board off.
+After `boot()` the console driver is active and holds what the board has
+printed since it started.
+
+```yaml
+    drivers:
+      SerialDriver: {}
+      NetworkPowerDriver: {}
+      ZynqMPJTAGBootDriver: {}
+      UBootDriver:
+        prompt: "ZynqMP> "
+      UBootLoaderStrategy: {}         # after the drivers it binds
+```
+
+```python
+strategy = target.get_strategy()
+strategy.boot([("bao.bin", "0x200000")], firmware="fw/")
+print(target.get_driver("ConsoleProtocol").read())
+strategy.off()
+```
+
+`LoaderStrategy` takes `settle`, for a debugger powered from the board's own
+socket; `UBootNetStrategy` takes `serverip`, `wget` (`url` or `legacy`) and
+`timeout`.
+
 ## Layout
 
     labgrid_bao_boards/drivers/   one module per driver: zynqmp_jtag.py, trace32.py, rfp.py, tapo.py
+    labgrid_bao_boards/strategy.py   the boot strategies
     labgrid_bao_boards/power/     power backends in labgrid's shape: tapo.py
 
 ## Power
@@ -188,3 +227,5 @@ loader.load([("bao.bin", "0x200000"), ("guest.elf", None)])
 | 2 | `Trace32Driver` | no: only against stand-ins for PowerView and `t32rem` |
 | 3 | `RFPDriver` | no: only against a stand-in for `rfp-cli`; the options were checked against `rfp-cli` V1.13 |
 | 4 | `TapoPowerDriver` | the backend has read the state of a P110; switching, and the driver class on a real plug, not yet |
+| 5 | `UBootLoaderStrategy` | runs Bao's tests on a ZCU104 in a lab, over JTAG |
+| 6 | `LoaderStrategy`, `UBootNetStrategy` | no |
