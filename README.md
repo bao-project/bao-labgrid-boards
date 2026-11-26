@@ -142,6 +142,7 @@ lab's command line boot it the same way.
 | 1 | `LoaderStrategy` | boards whose loader starts the images itself (`Trace32Driver`, `RFPDriver`) | power, console, loader | power cycle, wait `settle` seconds, load |
 | 2 | `UBootLoaderStrategy` | boards whose loader leaves U-Boot at its prompt (`ZynqMPJTAGBootDriver`) | power, console, loader, `UBootDriver` | power cycle, load, `go` to the first image that has an address |
 | 3 | `UBootNetStrategy` | boards that boot their own U-Boot | power, console, `UBootDriver`, a TFTP or HTTP provider | stage the first image, power cycle, `dhcp`, fetch, `go` |
+| 4 | `SDCardStrategy` | boards that boot from an SD card behind a USB-SD-Mux | power, console, `USBSDMuxDriver`, `USBStorageDriver` | power off, card to the host, write it, card back, power on |
 
 `off()` ends a debugger session a loader left open and powers the board off.
 After `boot()` the console driver is active and holds what the board has
@@ -164,6 +165,12 @@ print(target.get_driver("ConsoleProtocol").read())
 strategy.off()
 ```
 
+`SDCardStrategy` writes the first image as a whole card, or, given a `card`
+layout, builds the card around it with `firmware` (`labgrid_bao_boards/card.py`:
+firmware files at raw offsets, one ext4 partition with the payload; needs
+`mke2fs`, `sgdisk` and `dd` where it is built). `off()` also leaves the card on
+the board's side.
+
 `LoaderStrategy` takes `settle`, for a debugger powered from the board's own
 socket; `UBootNetStrategy` takes `serverip`, `wget` (`url` or `legacy`) and
 `timeout`.
@@ -172,6 +179,7 @@ socket; `UBootNetStrategy` takes `serverip`, `wget` (`url` or `legacy`) and
 
     labgrid_bao_boards/drivers/   one module per driver: zynqmp_jtag.py, trace32.py, rfp.py, tapo.py
     labgrid_bao_boards/strategy.py   the boot strategies
+    labgrid_bao_boards/card.py       SD card images for boards that boot from one
     labgrid_bao_boards/power/     power backends in labgrid's shape: tapo.py
 
 ## Power
@@ -228,4 +236,6 @@ loader.load([("bao.bin", "0x200000"), ("guest.elf", None)])
 | 3 | `RFPDriver` | no: only against a stand-in for `rfp-cli`; the options were checked against `rfp-cli` V1.13 |
 | 4 | `TapoPowerDriver` | the backend has read the state of a P110; switching, and the driver class on a real plug, not yet |
 | 5 | `UBootLoaderStrategy` | runs Bao's tests on a ZCU104 in a lab, over JTAG |
-| 6 | `LoaderStrategy`, `UBootNetStrategy` | no |
+| 6 | `SDCardStrategy` | runs Bao's tests on a K3 CoM260 in a lab |
+| 7 | `LoaderStrategy` | loads an S32Z270 through TRACE32 in a lab, up to Bao's banner |
+| 8 | `UBootNetStrategy` | no |

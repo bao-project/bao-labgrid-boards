@@ -19,12 +19,15 @@ printed since it started.
 
 import enum
 import os
+import tempfile
 import time
 
 import attr
 from labgrid.binding import BindingState
 from labgrid.factory import target_factory
 from labgrid.strategy import Strategy
+
+from . import card as sdcard
 
 
 class Status(enum.Enum):
@@ -180,3 +183,55 @@ class UBootNetStrategy(BootStrategy):
         self.console.sendline(f"go {address}")
         self.target.deactivate(self.uboot)
         self.status = Status.running
+
+
+@target_factory.reg_driver
+@attr.s(eq=False)
+class SDCardStrategy(BootStrategy):
+    """Boards that boot from an SD card behind a USB-SD-Mux: the card is
+    written while the board is off, handed to the board, and the board
+    powered on. Its own boot chain starts the payload.
+
+    Args:
+        card (dict): layout of the card to build around the first image with
+            the firmware (see labgrid_bao_boards.card); without it the first
+            image is a whole-card image, written as it is
+    """
+    bindings = {
+        "power": "PowerProtocol",
+        "console": "ConsoleProtocol",
+        "mux": "USBSDMuxDriver",
+        "storage": "USBStorageDriver",
+    }
+    card = attr.ib(default=None, validator=attr.validators.optional(attr.validators.instance_of(dict)))
+
+    def boot(self, images, firmware=None):
+        image = images[0][0]
+        self.target.activate(self.power)
+        self.power.off()
+        self.target.activate(self.mux)
+        self.mux.set_mode("host")
+        self.target.activate(self.storage)
+        try:
+            if self.card:
+                with tempfile.TemporaryDirectory() as tmp:
+                    built = sdcard.build(self.card, image, firmware, os.path.join(tmp, "card.img"))
+                    self.storage.write_image(built)
+            else:
+                self.storage.write_image(image)
+        finally:
+            # the card always goes back: some boards loop without it
+            self.target.deactivate(self.storage)
+            self.mux.set_mode("dut")
+        self.target.activate(self.console)
+        self.power.on()
+        time.sleep(self.settle)
+        self.status = Status.running
+
+    def off(self):
+        """Power the board off and leave the card on its side."""
+        try:
+            super().off()
+        finally:
+            self.target.activate(self.mux)
+            self.mux.set_mode("dut")

@@ -1,18 +1,3 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=45"]
 build-backend = "setuptools.build_meta"
-
-[project]
-name = "labgrid-bao-boards"
-version = "0.3.0"
-description = "labgrid drivers for the boards Bao runs on"
-readme = "README.md"
-license = {text = "Apache-2.0"}
-requires-python = ">=3.9"
-dependencies = ["labgrid>=25.0"]
-
-[project.optional-dependencies]
-tapo = ["python-kasa>=0.7"]
-
-[tool.setuptools]
-packages = ["labgrid_bao_boards", "labgrid_bao_boards.drivers", "labgrid_bao_boards.power"]
