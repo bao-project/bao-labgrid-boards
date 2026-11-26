@@ -6,4 +6,4 @@ SPDX-License-Identifier: Apache-2.0
 The drivers, one module each: board loaders and power switches.
 """
 
-from . import tapo, trace32, zynqmp_jtag  # noqa: F401
+from . import rfp, tapo, trace32, zynqmp_jtag  # noqa: F401

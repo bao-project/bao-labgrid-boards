@@ -25,6 +25,7 @@ ELF, which carries its own, and a hex string for a raw binary.
 |---|---|---|---|---|
 | 1 | `ZynqMPJTAGBootDriver` | Zynq UltraScale+ (ZCU104, ZCU102) | `USBFlashableDevice` (the JTAG cable) | `xsdb` |
 | 2 | `Trace32Driver` | anything a Lauterbach debugger reaches (S32Z270, TC4x, RH850) | `USBFlashableDevice` (the debugger) | TRACE32 PowerView, `t32rem` |
+| 3 | `RFPDriver` | Renesas microcontrollers (RH850 U2A16) | `USBFlashableDevice` (the E1, E2 or E2 Lite emulator) | `rfp-cli` (Renesas Flash Programmer) |
 
 ### ZynqMPJTAGBootDriver
 
@@ -99,9 +100,39 @@ Then `Go`, unless `go` is off. `command("Break")` sends any TRACE32 command,
 
 The license is in the debug cable.
 
+### RFPDriver
+
+Programs the device's flash with `rfp-cli`, one run per image, and resets
+the device into the program after the last one.
+
+```yaml
+imports:
+  - labgrid_bao_boards
+targets:
+  main:
+    resources:
+      - USBFlashableDevice:
+          match:
+            ID_VENDOR_ID: "045b"        # Renesas
+    drivers:
+      RFPDriver:
+        device: RH850/U2x               # as rfp-cli names the family
+        tool: e2                        # e1, e2, e2l
+        osc: 40.0                       # the board's main oscillator, MHz
+        # tool_serial: "XXXXXXXX"       # with several emulators on the machine
+        # auth_id: "FFFF...FF"          # the device's ID code, all F by default
+        # run: false                    # program without starting
+tools:
+  rfp-cli: /opt/renesas/linux-x64/rfp-cli    # default: rfp-cli from PATH
+```
+
+`load(images)` takes a hex or S-record file with the address `None` and a raw
+binary with its address: `[("guest.hex", None), ("bao.bin", "0x0")]`. An ELF
+is refused, since `rfp-cli` cannot read one.
+
 ## Layout
 
-    labgrid_bao_boards/drivers/   one module per driver: zynqmp_jtag.py, trace32.py, tapo.py
+    labgrid_bao_boards/drivers/   one module per driver: zynqmp_jtag.py, trace32.py, rfp.py, tapo.py
     labgrid_bao_boards/power/     power backends in labgrid's shape: tapo.py
 
 ## Power
@@ -155,4 +186,5 @@ loader.load([("bao.bin", "0x200000"), ("guest.elf", None)])
 |---|---|---|
 | 1 | `ZynqMPJTAGBootDriver` | boots a ZCU104 to the U-Boot prompt with `xsdb` 2020.2 and the 2023.1 prebuilt firmware, the board's switches on JTAG. The software override of the boot mode has not been tried with the switches on another mode. |
 | 2 | `Trace32Driver` | no: only against stand-ins for PowerView and `t32rem` |
-| 3 | `TapoPowerDriver` | the backend has read the state of a P110; switching, and the driver class on a real plug, not yet |
+| 3 | `RFPDriver` | no: only against a stand-in for `rfp-cli`; the options were checked against `rfp-cli` V1.13 |
+| 4 | `TapoPowerDriver` | the backend has read the state of a P110; switching, and the driver class on a real plug, not yet |
